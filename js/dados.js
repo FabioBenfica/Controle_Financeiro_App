@@ -44,6 +44,11 @@ function totais(lista) {
   return { entrou, saiu, saldo: entrou - saiu };
 }
 
+// Saldo acumulado de tudo que aconteceu antes da data (sobra das quinzenas anteriores)
+function sobraAntesDe(data) {
+  return totais(dados.lancamentos.filter((l) => l.data < data)).saldo;
+}
+
 // Total "pendurado" na Caderneta (gastos ainda não pagos)
 function totalCaderneta() {
   return dados.lancamentos

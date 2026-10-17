@@ -18,6 +18,8 @@ function telaInicio() {
   const q = quinzenaVista;
   const ehAtual = q.inicio === quinzenaDe(hojeTexto()).inicio;
   const tq = totais(lancamentosEntre(q.inicio, q.fim));
+  const sobra = sobraAntesDe(q.inicio);
+  const saldo = sobra + tq.saldo;
 
   // Mês do calendário em que a quinzena começa
   const [ano, mes] = q.inicio.split("-").map(Number);
@@ -42,8 +44,9 @@ function telaInicio() {
       ${ehAtual ? "" : `<div style="text-align:center"><button class="link" id="q-hoje">voltar para a quinzena atual</button></div>`}
       <div class="saldo">
         <small>Saldo</small>
-        <strong class="${tq.saldo < 0 ? "negativo" : ""}">${reais(tq.saldo)}</strong>
+        <strong class="${saldo < 0 ? "negativo" : ""}">${reais(saldo)}</strong>
       </div>
+      <div class="linha"><span>Sobra anterior</span><span class="${sobra < 0 ? "gasto" : ""}">${reais(sobra)}</span></div>
       <div class="linha"><span>Entrou</span><span class="entrada">${reais(tq.entrou)}</span></div>
       <div class="linha"><span>Saiu</span><span class="gasto">${reais(tq.saiu)}</span></div>
       <div class="linha"><span>Na ${dados.caderneta.nome}</span><span class="cad">${reais(totalCaderneta())}</span></div>
