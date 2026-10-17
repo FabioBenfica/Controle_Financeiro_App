@@ -1,0 +1,134 @@
+/* ===== Cores: tema claro (padrão) ===== */
+:root {
+  --fundo: #f3f5f4;
+  --cartao: #ffffff;
+  --texto: #1c2421;
+  --texto-suave: #66726d;
+  --borda: #dfe5e2;
+  --principal: #1f7a5a;
+  --principal-texto: #ffffff;
+  --entrada: #1f8a4c;
+  --gasto: #c0392b;
+  --caderneta: #b7791f;
+  color-scheme: light;
+}
+
+/* ===== Tema escuro: automático, segue o celular ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #121614;
+    --cartao: #1d2321;
+    --texto: #e8eeeb;
+    --texto-suave: #98a5a0;
+    --borda: #2e3633;
+    --principal: #3fae84;
+    --principal-texto: #0d1411;
+    --entrada: #4cc27f;
+    --gasto: #ef6b5b;
+    --caderneta: #e0a645;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+}
+
+#tela {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 1rem 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+}
+
+h1 { font-size: 1.3rem; margin: 0 0 1rem; }
+h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weight: 600; }
+
+.cartao {
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 14px;
+  padding: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+/* ===== Navegação de período (◀ ▶) ===== */
+.periodo {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.periodo span { font-weight: 600; }
+.periodo button, .link {
+  background: none; border: none; color: var(--principal);
+  font: inherit; font-size: 1.2rem; padding: 0.25rem 0.6rem; cursor: pointer;
+}
+.link { font-size: 0.85rem; padding: 0; text-decoration: underline; }
+
+/* ===== Resumo da quinzena ===== */
+.saldo { text-align: center; margin: 0.5rem 0 1rem; }
+.saldo small { display: block; color: var(--texto-suave); }
+.saldo strong { font-size: 2rem; }
+.saldo .negativo { color: var(--gasto); }
+
+.linha {
+  display: flex; justify-content: space-between;
+  padding: 0.4rem 0; border-top: 1px solid var(--borda);
+}
+.entrada { color: var(--entrada); }
+.gasto { color: var(--gasto); }
+.cad { color: var(--caderneta); }
+
+/* ===== Totais do mês ===== */
+.mes { display: flex; gap: 0.75rem; }
+.mes > div { flex: 1; text-align: center; }
+.mes small { display: block; color: var(--texto-suave); font-size: 0.8rem; }
+.mes strong { font-size: 1.05rem; }
+
+/* ===== Lista de lançamentos ===== */
+.lista { list-style: none; margin: 0; padding: 0; }
+.lista li {
+  display: flex; justify-content: space-between; gap: 0.5rem;
+  padding: 0.55rem 0; border-top: 1px solid var(--borda);
+}
+.lista li:first-child { border-top: none; }
+.lista .data { color: var(--texto-suave); font-size: 0.8rem; display: block; }
+.vazio { color: var(--texto-suave); text-align: center; margin: 0.5rem 0; }
+
+/* ===== Botões de ação ===== */
+.acoes { display: flex; gap: 0.75rem; }
+.botao {
+  flex: 1; border: none; border-radius: 12px; padding: 0.9rem;
+  font: inherit; font-weight: 600; cursor: pointer;
+  background: var(--principal); color: var(--principal-texto);
+}
+.botao.secundario { background: var(--cartao); color: var(--principal); border: 2px solid var(--principal); }
+
+/* ===== Menu inferior ===== */
+.menu {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center;
+  background: var(--cartao); border-top: 1px solid var(--borda);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.menu button {
+  flex: 1; max-width: 120px;
+  background: none; border: none; color: var(--texto-suave);
+  font: inherit; font-size: 0.75rem; padding: 0.5rem 0 0.6rem; cursor: pointer;
+}
+.menu .icone { display: block; font-size: 1.3rem; }
+.menu button.ativo { color: var(--principal); font-weight: 600; }
+
+/* ===== Mensagem rápida ===== */
+#aviso-rapido {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(5rem + env(safe-area-inset-bottom, 0px));
+  background: var(--texto); color: var(--fundo);
+  padding: 0.6rem 1rem; border-radius: 10px; font-size: 0.9rem;
+  max-width: 90%; text-align: center;
+}
