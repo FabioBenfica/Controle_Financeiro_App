@@ -76,18 +76,166 @@ function telaInicio() {
   const hoje = document.getElementById("q-hoje");
   if (hoje) hoje.onclick = () => { quinzenaVista = quinzenaDe(hojeTexto()); telaInicio(); };
 
-  document.getElementById("novo-gasto").onclick = () => avisoRapido("Novo gasto: chega na fase 2");
+  document.getElementById("novo-gasto").onclick = telaNovoGasto;
   document.getElementById("nova-entrada").onclick = () => avisoRapido("Nova entrada: chega na fase 3");
 }
 
 function itemLancamento(l) {
   const sinal = l.tipo === "entrada" ? "+" : "−";
   const classe = l.tipo === "entrada" ? "entrada" : "gasto";
-  const cad = l.categoria === "Caderneta" ? " 📒" : "";
+  const cad = l.categoria === CADERNETA ? " 📒" : "";
+  const parc = l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : l.recorrente ? " 🔁" : "";
   return `<li>
-    <span>${l.descricao || l.categoria}${cad}<span class="data">${diaMes(l.data)}</span></span>
+    <span>${l.descricao || l.categoria}${parc}${cad}<span class="data">${diaMes(l.data)}</span></span>
     <span class="${classe}">${sinal} ${reais(l.valor)}</span>
   </li>`;
+}
+
+// ---------- Campo de valor: digita só números, preenche da direita (centavos) ----------
+function ligarCampoValor(input, aoMudar) {
+  input.addEventListener("input", () => {
+    const centavos = Number(input.value.replace(/\D/g, "").slice(0, 11)) || 0;
+    input.value = centavos ? reais(centavos) : "";
+    input.dataset.centavos = centavos;
+    aoMudar?.();
+  });
+}
+
+// ---------- Novo gasto ----------
+function telaNovoGasto() {
+  const MAX_PARCELAS = 48;
+  let categoria = null;
+  let repeticao = "unica"; // "unica" | "parcelada" | "recorrente"
+  let parcelas = 2;
+
+  $tela.innerHTML = `
+    <div class="topo-form">
+      <button class="voltar" id="voltar" aria-label="Voltar">←</button>
+      <h1>Novo gasto</h1>
+    </div>
+
+    <section class="cartao form">
+      <label class="campo">Valor total
+        <input id="valor" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+      </label>
+
+      <label class="campo">Descrição
+        <input id="descricao" placeholder="ex.: mercado" maxlength="60" autocomplete="off">
+      </label>
+
+      <label class="campo">Data
+        <input id="data" type="date" value="${hojeTexto()}">
+      </label>
+
+      <div class="campo" id="bloco-repeticao">Repetição
+        <div class="chips" id="repeticoes">
+          <button type="button" class="chip ativo" data-rep="unica">Única</button>
+          <button type="button" class="chip" data-rep="parcelada">Parcelada</button>
+          <button type="button" class="chip" data-rep="recorrente">🔁 Recorrente</button>
+        </div>
+
+        <div id="bloco-parcelas" hidden>
+          <div class="contador">
+            <button type="button" id="menos" aria-label="Menos parcelas">−</button>
+            <strong id="n-parcelas"></strong>
+            <button type="button" id="mais" aria-label="Mais parcelas">+</button>
+          </div>
+          <div class="detalhe" id="detalhe-parcelas"></div>
+        </div>
+
+        <div class="detalhe" id="detalhe-recorrente" hidden></div>
+      </div>
+
+      <div class="campo">Categoria
+        <div class="chips" id="categorias">
+          ${CATEGORIAS.map((c) => `<button type="button" class="chip" data-cat="${c}">${c}</button>`).join("")}
+          <button type="button" class="chip chip-cad" data-cat="${CADERNETA}">📒 ${dados.caderneta.nome}</button>
+        </div>
+      </div>
+
+      <button class="botao" id="salvar">SALVAR</button>
+    </section>`;
+
+  const $valor = document.getElementById("valor");
+  const $data = document.getElementById("data");
+  const $detalhe = document.getElementById("detalhe-parcelas");
+
+  function atualizarParcelas() {
+    // Caderneta é sempre paga de uma vez: sem opções de repetição
+    if (categoria === CADERNETA) repeticao = "unica";
+    document.getElementById("bloco-repeticao").hidden = categoria === CADERNETA;
+    document.querySelectorAll("#repeticoes .chip").forEach((c) =>
+      c.classList.toggle("ativo", c.dataset.rep === repeticao));
+    document.getElementById("bloco-parcelas").hidden = repeticao !== "parcelada";
+
+    const $rec = document.getElementById("detalhe-recorrente");
+    $rec.hidden = repeticao !== "recorrente";
+    if ($data.value) {
+      $rec.textContent = `🔁 Todo dia ${Number($data.value.slice(8))}, a partir de ${dataCompleta($data.value)}`;
+    }
+
+    document.getElementById("n-parcelas").textContent = parcelas;
+    document.getElementById("menos").disabled = parcelas <= 2;
+    document.getElementById("mais").disabled = parcelas >= MAX_PARCELAS;
+
+    const total = Number($valor.dataset.centavos) || 0;
+    if (!total || !$data.value) { $detalhe.textContent = `${parcelas}× (digite o valor)`; return; }
+    const valores = dividirParcelas(total, parcelas);
+    const datas = datasParcelas($data.value, parcelas);
+    const iguais = valores.every((v) => v === valores[0]);
+    $detalhe.innerHTML = (iguais
+      ? `→ ${parcelas}× de ${reais(valores[0])}`
+      : `→ 1× de ${reais(valores[0])} + ${parcelas - 1}× de ${reais(valores[1])}`)
+      + `<br><small>${datas.map(diaMes).join(", ")}</small>`;
+  }
+
+  ligarCampoValor($valor, atualizarParcelas);
+  $data.addEventListener("change", atualizarParcelas);
+  document.getElementById("menos").onclick = () => { parcelas--; atualizarParcelas(); };
+  document.getElementById("mais").onclick = () => { parcelas++; atualizarParcelas(); };
+
+  document.getElementById("repeticoes").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    repeticao = b.dataset.rep;
+    atualizarParcelas();
+  });
+
+  document.getElementById("categorias").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    categoria = b.dataset.cat;
+    document.querySelectorAll("#categorias .chip").forEach((c) => c.classList.toggle("ativo", c === b));
+    atualizarParcelas();
+  });
+
+  document.getElementById("voltar").onclick = () => abrir("inicio");
+
+  document.getElementById("salvar").onclick = () => {
+    const valor = Number($valor.dataset.centavos) || 0;
+    if (!valor) { avisoRapido("Digite o valor"); $valor.focus(); return; }
+    if (!$data.value) { avisoRapido("Escolha a data"); return; }
+    if (!categoria) { avisoRapido("Escolha a categoria"); return; }
+
+    const gasto = { valor, data: $data.value, categoria, descricao: document.getElementById("descricao").value.trim() };
+    let mensagem = "Gasto salvo";
+    if (repeticao === "recorrente") {
+      salvarRecorrente(gasto);
+      mensagem = `Recorrente salvo: todo dia ${Number(gasto.data.slice(8))}`;
+    } else if (repeticao === "parcelada") {
+      salvarGasto({ ...gasto, parcelas });
+      mensagem = `Gasto salvo em ${parcelas} parcelas`;
+    } else {
+      salvarGasto({ ...gasto, parcelas: 1 });
+    }
+    quinzenaVista = quinzenaDe($data.value);
+    abrir("inicio");
+    avisoRapido(mensagem);
+  };
+
+  atualizarParcelas();
+  window.scrollTo(0, 0);
+  $valor.focus();
 }
 
 // ---------- Telas das próximas fases ----------
@@ -117,4 +265,5 @@ document.querySelector(".menu").addEventListener("click", (e) => {
   if (b) abrir(b.dataset.tela);
 });
 
+gerarRecorrentes();
 abrir("inicio");

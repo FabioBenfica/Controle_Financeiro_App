@@ -37,6 +37,20 @@ function somarDias(texto, dias) {
   return paraTexto(d);
 }
 
+// Soma meses mantendo o dia; se o dia não existir (ex.: 31), usa o último dia do mês
+function somarMeses(texto, meses) {
+  const [a, m, d] = texto.split("-").map(Number);
+  const alvo = new Date(a, m - 1 + meses, 1);
+  const dia = Math.min(d, ultimoDiaDoMes(alvo.getFullYear(), alvo.getMonth()));
+  return paraTexto(new Date(alvo.getFullYear(), alvo.getMonth(), dia));
+}
+
+// "2026-10-17" → "17/10/2026"
+function dataCompleta(texto) {
+  const [a, m, d] = texto.split("-");
+  return `${d}/${m}/${a}`;
+}
+
 // Retorna { inicio, fim } da quinzena que contém a data (textos AAAA-MM-DD)
 function quinzenaDe(texto) {
   const d = deTexto(texto);

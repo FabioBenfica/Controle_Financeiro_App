@@ -124,6 +124,50 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
 .menu .icone { display: block; font-size: 1.3rem; }
 .menu button.ativo { color: var(--principal); font-weight: 600; }
 
+[hidden] { display: none !important; }
+
+/* ===== Formulários ===== */
+.topo-form { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+.topo-form h1 { margin: 0; }
+.voltar {
+  background: none; border: none; color: var(--principal);
+  font-size: 1.5rem; padding: 0 0.5rem 0 0; cursor: pointer;
+}
+
+.campo {
+  display: block; margin-bottom: 1.1rem;
+  color: var(--texto-suave); font-size: 0.85rem; font-weight: 600;
+}
+.campo input {
+  display: block; width: 100%; margin-top: 0.35rem;
+  padding: 0.75rem; font: inherit; font-size: 1rem; font-weight: 400;
+  color: var(--texto); background: var(--fundo);
+  border: 1px solid var(--borda); border-radius: 10px;
+}
+.campo input:focus { outline: 2px solid var(--principal); border-color: transparent; }
+#valor { font-size: 1.5rem; font-weight: 600; }
+
+.contador { display: flex; align-items: center; gap: 1rem; margin-top: 0.35rem; }
+.contador button {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 2px solid var(--principal); background: none; color: var(--principal);
+  font-size: 1.4rem; cursor: pointer;
+}
+.contador button:disabled { opacity: 0.3; cursor: default; }
+.contador strong { font-size: 1.3rem; color: var(--texto); min-width: 2ch; text-align: center; }
+.detalhe { margin-top: 0.4rem; color: var(--texto); font-weight: 400; }
+.detalhe small { color: var(--texto-suave); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.35rem; }
+.chip {
+  padding: 0.55rem 0.9rem; border-radius: 999px; cursor: pointer;
+  font: inherit; font-size: 0.9rem; font-weight: 400;
+  background: var(--fundo); color: var(--texto); border: 1px solid var(--borda);
+}
+.chip.ativo { background: var(--principal); color: var(--principal-texto); border-color: var(--principal); }
+.chip-cad { border: 2px solid var(--caderneta); color: var(--caderneta); font-weight: 600; }
+.chip-cad.ativo { background: var(--caderneta); color: var(--cartao); border-color: var(--caderneta); }
+
 /* ===== Mensagem rápida ===== */
 #aviso-rapido {
   position: fixed; left: 50%; transform: translateX(-50%);
