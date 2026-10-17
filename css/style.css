@@ -168,6 +168,27 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
 .chip-cad { border: 2px solid var(--caderneta); color: var(--caderneta); font-weight: 600; }
 .chip-cad.ativo { background: var(--caderneta); color: var(--cartao); border-color: var(--caderneta); }
 
+/* ===== Painel que sobe de baixo ===== */
+.clicavel { cursor: pointer; }
+.painel-fundo {
+  position: fixed; inset: 0; z-index: 10;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.painel {
+  width: 100%; max-width: 480px;
+  background: var(--cartao); border-radius: 18px 18px 0 0;
+  padding: 1.25rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; gap: 0.6rem;
+  animation: subir 0.2s ease-out;
+}
+.painel h3 { margin: 0; }
+.painel .botao { flex: none; }
+.painel p { margin: 0; }
+.suave { color: var(--texto-suave); font-size: 0.9rem; }
+.botao.perigo { background: var(--gasto); color: #fff; }
+@keyframes subir { from { transform: translateY(100%); } to { transform: none; } }
+
 /* ===== Mensagem rápida ===== */
 #aviso-rapido {
   position: fixed; left: 50%; transform: translateX(-50%);

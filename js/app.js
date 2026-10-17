@@ -15,6 +15,7 @@ function avisoRapido(texto) {
 
 // ---------- Tela principal ----------
 function telaInicio() {
+  gerarRecorrentes(); // caso o dia de algum recorrente tenha chegado com o app aberto
   const q = quinzenaVista;
   const ehAtual = q.inicio === quinzenaDe(hojeTexto()).inicio;
   const tq = totais(lancamentosEntre(q.inicio, q.fim));
@@ -76,6 +77,13 @@ function telaInicio() {
   const hoje = document.getElementById("q-hoje");
   if (hoje) hoje.onclick = () => { quinzenaVista = quinzenaDe(hojeTexto()); telaInicio(); };
 
+  const lista = $tela.querySelector(".lista");
+  if (lista) lista.addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-id]");
+    const l = li && ultimos.find((x) => x.id === li.dataset.id);
+    if (l) painelLancamento(l, telaInicio);
+  });
+
   document.getElementById("novo-gasto").onclick = telaNovoGasto;
   document.getElementById("nova-entrada").onclick = () => avisoRapido("Nova entrada: chega na fase 3");
 }
@@ -85,10 +93,66 @@ function itemLancamento(l) {
   const classe = l.tipo === "entrada" ? "entrada" : "gasto";
   const cad = l.categoria === CADERNETA ? " 📒" : "";
   const parc = l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : l.recorrente ? " 🔁" : "";
-  return `<li>
+  return `<li class="clicavel" data-id="${l.id}">
     <span>${l.descricao || l.categoria}${parc}${cad}<span class="data">${diaMes(l.data)}</span></span>
     <span class="${classe}">${sinal} ${reais(l.valor)}</span>
   </li>`;
+}
+
+// ---------- Painel de um lançamento (excluir) ----------
+// aoTerminar: função que redesenha a tela depois de excluir
+function painelLancamento(l, aoTerminar) {
+  const fundo = document.createElement("div");
+  fundo.className = "painel-fundo";
+  document.body.appendChild(fundo);
+  const fechar = () => fundo.remove();
+  fundo.addEventListener("click", (e) => { if (e.target === fundo) fechar(); });
+
+  const categoria = l.categoria === CADERNETA ? `📒 ${dados.caderneta.nome}` : l.categoria;
+  const cabecalho = `
+    <h3>${l.descricao || l.categoria}${l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : ""}${l.recorrente ? " 🔁" : ""}</h3>
+    <p class="${l.tipo === "entrada" ? "entrada" : "gasto"}"><strong>${reais(l.valor)}</strong></p>
+    <p class="suave">${dataCompleta(l.data)} · ${categoria}</p>`;
+
+  // Cada opção: [texto do botão, pergunta de confirmação, ação]
+  let opcoes;
+  if (l.grupo) {
+    opcoes = [
+      ["Excluir só esta parcela", `Excluir a parcela ${l.parcela}/${l.totalParcelas}?`, () => excluirLancamento(l)],
+      [`Excluir todas as ${l.totalParcelas} parcelas`, `Excluir as ${l.totalParcelas} parcelas desta compra?`, () => excluirTodasParcelas(l.grupo)],
+    ];
+  } else if (l.recorrente) {
+    opcoes = [
+      ["Excluir só este mês", `Excluir o lançamento de ${dataCompleta(l.data)}? Os outros meses continuam.`, () => excluirLancamento(l)],
+      ["Parar recorrência", `Parar a recorrência? Este mês e os próximos serão apagados. Os meses anteriores ficam.`, () => pararRecorrencia(l.recorrente, l.data)],
+    ];
+  } else {
+    opcoes = [["🗑️ Excluir", "Excluir este lançamento?", () => excluirLancamento(l)]];
+  }
+
+  function mostrarOpcoes() {
+    fundo.innerHTML = `<div class="painel">${cabecalho}
+      ${opcoes.map(([texto], i) => `<button class="botao perigo" data-i="${i}">${texto}</button>`).join("")}
+      <button class="botao secundario" data-cancelar>Cancelar</button></div>`;
+    fundo.querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => confirmar(opcoes[b.dataset.i])));
+    fundo.querySelector("[data-cancelar]").onclick = fechar;
+  }
+
+  function confirmar([, pergunta, acao]) {
+    fundo.innerHTML = `<div class="painel">${cabecalho}
+      <p><strong>${pergunta}</strong></p>
+      <button class="botao perigo" data-sim>Sim, excluir</button>
+      <button class="botao secundario" data-voltar>Voltar</button></div>`;
+    fundo.querySelector("[data-sim]").onclick = () => {
+      acao();
+      fechar();
+      aoTerminar();
+      avisoRapido("Excluído");
+    };
+    fundo.querySelector("[data-voltar]").onclick = mostrarOpcoes;
+  }
+
+  mostrarOpcoes();
 }
 
 // ---------- Campo de valor: digita só números, preenche da direita (centavos) ----------

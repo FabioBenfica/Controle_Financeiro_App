@@ -15,7 +15,7 @@ const DADOS_INICIAIS = {
   lancamentos: [],
   contas: [],
   entradasFixas: [],
-  recorrentes: [], // { id, valor, descricao, categoria, inicio, ativo }
+  recorrentes: [], // { id, valor, descricao, categoria, inicio, ativo, pulados: [datas] }
   caderneta: { nome: "Caderneta", pagamentos: [] },
 };
 
@@ -35,8 +35,13 @@ function salvar() {
   localStorage.setItem(CHAVE, JSON.stringify(dados));
 }
 
+// Lançamentos salvos + ocorrências futuras dos recorrentes (previstas) até a data "ate"
+function todosAte(ate) {
+  return [...dados.lancamentos, ...recorrentesFuturos(ate)];
+}
+
 function lancamentosEntre(inicio, fim) {
-  return dados.lancamentos.filter((l) => l.data >= inicio && l.data <= fim);
+  return todosAte(fim).filter((l) => l.data >= inicio && l.data <= fim);
 }
 
 function totais(lista) {
@@ -50,7 +55,7 @@ function totais(lista) {
 
 // Saldo acumulado de tudo que aconteceu antes da data (sobra das quinzenas anteriores)
 function sobraAntesDe(data) {
-  return totais(dados.lancamentos.filter((l) => l.data < data)).saldo;
+  return totais(todosAte(data).filter((l) => l.data < data)).saldo;
 }
 
 function novoId() {
@@ -98,8 +103,10 @@ function gerarRecorrentes() {
   let mudou = false;
   for (const r of dados.recorrentes) {
     if (!r.ativo) continue;
-    const jaLancadas = new Set(
-      dados.lancamentos.filter((l) => l.recorrente === r.id).map((l) => l.data));
+    const jaLancadas = new Set([
+      ...dados.lancamentos.filter((l) => l.recorrente === r.id).map((l) => l.data),
+      ...(r.pulados || []),
+    ]);
     for (let i = 0, data = r.inicio; data <= hoje; data = somarMeses(r.inicio, ++i)) {
       if (jaLancadas.has(data)) continue;
       dados.lancamentos.push({
@@ -110,6 +117,48 @@ function gerarRecorrentes() {
     }
   }
   if (mudou) salvar();
+}
+
+// Ocorrências dos recorrentes depois de hoje (até "ate"). Não são salvas:
+// viram lançamentos de verdade quando o dia chega (gerarRecorrentes).
+function recorrentesFuturos(ate) {
+  const hoje = hojeTexto();
+  const lista = [];
+  for (const r of dados.recorrentes) {
+    if (!r.ativo) continue;
+    for (let i = 0, data = r.inicio; data <= ate; data = somarMeses(r.inicio, ++i)) {
+      if (data <= hoje || r.pulados?.includes(data)) continue;
+      lista.push({
+        id: `${r.id}-${data}`, tipo: "gasto", valor: r.valor, descricao: r.descricao,
+        data, categoria: r.categoria, recorrente: r.id, previsto: true,
+      });
+    }
+  }
+  return lista;
+}
+
+// ---------- Exclusão ----------
+function excluirLancamento(l) {
+  if (l.recorrente) {
+    // Marca o mês como pulado para a recorrência não recriá-lo
+    const r = dados.recorrentes.find((x) => x.id === l.recorrente);
+    if (r) r.pulados = [...(r.pulados || []), l.data];
+  }
+  dados.lancamentos = dados.lancamentos.filter((x) => x.id !== l.id);
+  salvar();
+}
+
+function excluirTodasParcelas(grupo) {
+  dados.lancamentos = dados.lancamentos.filter((x) => x.grupo !== grupo);
+  salvar();
+}
+
+// Para a recorrência: apaga o lançamento desta data e os seguintes; os anteriores ficam
+function pararRecorrencia(id, aPartirDe) {
+  const r = dados.recorrentes.find((x) => x.id === id);
+  if (r) r.ativo = false;
+  dados.lancamentos = dados.lancamentos.filter((x) => !(x.recorrente === id && x.data >= aPartirDe));
+  salvar();
 }
 
 // Total "pendurado" na Caderneta (gastos ainda não pagos)
