@@ -9,12 +9,13 @@
 const CHAVE = "controle-financeiro-v1";
 
 const CATEGORIAS = ["Alimentação", "Transporte", "Casa", "Lazer", "Saúde", "Outros"];
+const TIPOS_ENTRADA = ["Salário", "Extra", "Outros"];
 const CADERNETA = "Caderneta"; // nome interno; o nome exibido fica em dados.caderneta.nome
 
 const DADOS_INICIAIS = {
   lancamentos: [],
   contas: [],
-  entradasFixas: [],
+  entradasFixas: [], // { id, valor, descricao, tipo, inicio, ativo, respondidos: [datas] }
   recorrentes: [], // { id, valor, descricao, categoria, inicio, ativo, pulados: [datas] }
   caderneta: { nome: "Caderneta", pagamentos: [] },
 };
@@ -135,6 +136,60 @@ function recorrentesFuturos(ate) {
     }
   }
   return lista;
+}
+
+// ---------- Entradas ----------
+function lancarEntrada({ valor, descricao, data, tipo, fixa }) {
+  dados.lancamentos.push({
+    id: novoId(), tipo: "entrada", valor, descricao, data, categoria: tipo,
+    ...(fixa && { fixa }),
+  });
+}
+
+function salvarEntrada({ valor, descricao, data, tipo, fixa }) {
+  if (fixa) {
+    const f = { id: novoId(), valor, descricao, tipo, inicio: data, ativo: true, respondidos: [] };
+    dados.entradasFixas.push(f);
+    lancarEntrada({ valor, descricao, data, tipo, fixa: f.id });
+  } else {
+    lancarEntrada({ valor, descricao, data, tipo });
+  }
+  salvar();
+}
+
+// Dias de pagamento (15 e 30/último dia de fevereiro) depois de "inicio" até "fim"
+function diasDePagamento(inicio, fim) {
+  const dias = [];
+  let [a, m] = inicio.split("-").map(Number);
+  m -= 1;
+  while (true) {
+    for (const d of [15, diaSegundoPagamento(a, m)]) {
+      const t = paraTexto(new Date(a, m, d));
+      if (t > fim) return dias;
+      if (t > inicio) dias.push(t);
+    }
+    if (++m > 11) { m = 0; a++; }
+  }
+}
+
+// Salários fixos aguardando confirmação: [{ fixa, data }]
+function entradasPendentes() {
+  const hoje = hojeTexto();
+  const lista = [];
+  for (const f of dados.entradasFixas) {
+    if (!f.ativo) continue;
+    for (const data of diasDePagamento(f.inicio, hoje)) {
+      if (!f.respondidos.includes(data)) lista.push({ fixa: f, data });
+    }
+  }
+  return lista.sort((x, y) => x.data.localeCompare(y.data));
+}
+
+// Responde o cartão "entrou?": valor = centavos recebidos, ou null se não entrou
+function responderEntrada(fixa, data, valor) {
+  if (valor) lancarEntrada({ valor, descricao: fixa.descricao, data, tipo: fixa.tipo, fixa: fixa.id });
+  fixa.respondidos.push(data);
+  salvar();
 }
 
 // ---------- Exclusão ----------

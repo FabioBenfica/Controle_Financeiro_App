@@ -85,7 +85,122 @@ function telaInicio() {
   });
 
   document.getElementById("novo-gasto").onclick = telaNovoGasto;
-  document.getElementById("nova-entrada").onclick = () => avisoRapido("Nova entrada: chega na fase 3");
+  document.getElementById("nova-entrada").onclick = telaNovaEntrada;
+
+  mostrarSalariosPendentes();
+}
+
+// ---------- Cartões "O salário entrou?" ----------
+function mostrarSalariosPendentes() {
+  const $avisos = document.getElementById("avisos");
+  $avisos.innerHTML = entradasPendentes().map(({ fixa, data }, i) => `
+    <section class="cartao aviso-salario" data-i="${i}">
+      <p>💰 <strong>${fixa.descricao || fixa.tipo}</strong> de <strong>${reais(fixa.valor)}</strong> entrou? <span class="suave">(${dataCompleta(data)})</span></p>
+      <div class="acoes-aviso">
+        <button class="botao" data-acao="confirmar">✅ Confirmar</button>
+        <button class="botao secundario" data-acao="outro">✏️ Outro valor</button>
+        <button class="botao secundario" data-acao="nao">Não entrou</button>
+      </div>
+    </section>`).join("");
+
+  const pendentes = entradasPendentes();
+  $avisos.querySelectorAll(".aviso-salario").forEach(($c) => {
+    const { fixa, data } = pendentes[$c.dataset.i];
+    $c.querySelector('[data-acao="confirmar"]').onclick = () => {
+      responderEntrada(fixa, data, fixa.valor);
+      telaInicio();
+      avisoRapido(`Entrada de ${reais(fixa.valor)} lançada`);
+    };
+    $c.querySelector('[data-acao="nao"]').onclick = () => {
+      responderEntrada(fixa, data, null);
+      telaInicio();
+    };
+    $c.querySelector('[data-acao="outro"]').onclick = () => {
+      $c.querySelector(".acoes-aviso").innerHTML = `
+        <input class="valor-aviso" inputmode="numeric" placeholder="R$ 0,00">
+        <button class="botao" data-acao="salvar">Salvar</button>
+        <button class="botao secundario" data-acao="voltar">Voltar</button>`;
+      const $v = $c.querySelector(".valor-aviso");
+      ligarCampoValor($v);
+      $v.focus();
+      $c.querySelector('[data-acao="voltar"]').onclick = telaInicio;
+      $c.querySelector('[data-acao="salvar"]').onclick = () => {
+        const valor = Number($v.dataset.centavos) || 0;
+        if (!valor) { avisoRapido("Digite o valor"); return; }
+        responderEntrada(fixa, data, valor);
+        telaInicio();
+        avisoRapido(`Entrada de ${reais(valor)} lançada`);
+      };
+    };
+  });
+}
+
+// ---------- Nova entrada ----------
+function telaNovaEntrada() {
+  let tipo = null;
+
+  $tela.innerHTML = `
+    <div class="topo-form">
+      <button class="voltar" id="voltar" aria-label="Voltar">←</button>
+      <h1>Nova entrada</h1>
+    </div>
+
+    <section class="cartao form">
+      <label class="campo">Valor
+        <input id="valor" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+      </label>
+
+      <label class="campo">Descrição
+        <input id="descricao" placeholder="ex.: freela" maxlength="60" autocomplete="off">
+      </label>
+
+      <label class="campo">Data
+        <input id="data" type="date" value="${hojeTexto()}">
+      </label>
+
+      <div class="campo">Tipo
+        <div class="chips" id="tipos">
+          ${TIPOS_ENTRADA.map((t) => `<button type="button" class="chip" data-tipo="${t}">${t}</button>`).join("")}
+        </div>
+      </div>
+
+      <label class="campo marcar">
+        <input type="checkbox" id="fixa">
+        <span>Fixa – repete toda quinzena (dias 15 e 30)
+          <small>Nos dias de pagamento, o app pergunta se entrou.</small></span>
+      </label>
+
+      <button class="botao" id="salvar">SALVAR</button>
+    </section>`;
+
+  const $valor = document.getElementById("valor");
+  ligarCampoValor($valor);
+
+  document.getElementById("tipos").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    tipo = b.dataset.tipo;
+    document.querySelectorAll("#tipos .chip").forEach((c) => c.classList.toggle("ativo", c === b));
+  });
+
+  document.getElementById("voltar").onclick = () => abrir("inicio");
+
+  document.getElementById("salvar").onclick = () => {
+    const valor = Number($valor.dataset.centavos) || 0;
+    const data = document.getElementById("data").value;
+    if (!valor) { avisoRapido("Digite o valor"); $valor.focus(); return; }
+    if (!data) { avisoRapido("Escolha a data"); return; }
+    if (!tipo) { avisoRapido("Escolha o tipo"); return; }
+
+    const fixa = document.getElementById("fixa").checked;
+    salvarEntrada({ valor, data, tipo, fixa, descricao: document.getElementById("descricao").value.trim() });
+    quinzenaVista = quinzenaDe(data);
+    abrir("inicio");
+    avisoRapido(fixa ? "Entrada fixa salva: o app vai perguntar nos dias 15 e 30" : "Entrada salva");
+  };
+
+  window.scrollTo(0, 0);
+  $valor.focus();
 }
 
 function itemLancamento(l) {
