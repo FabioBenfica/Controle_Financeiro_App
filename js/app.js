@@ -140,6 +140,7 @@ function mostrarSalariosPendentes() {
 // ---------- Nova entrada ----------
 function telaNovaEntrada() {
   let tipo = null;
+  let freq = "unica"; // "unica" | "quinzenal" | "mensal"
 
   $tela.innerHTML = `
     <div class="topo-form">
@@ -166,17 +167,36 @@ function telaNovaEntrada() {
         </div>
       </div>
 
-      <label class="campo marcar">
-        <input type="checkbox" id="fixa">
-        <span>Fixa – repete toda quinzena (dias 15 e 30)
-          <small>Nos dias de pagamento, o app pergunta se entrou.</small></span>
-      </label>
+      <div class="campo">Repetição
+        <div class="chips" id="freqs">
+          <button type="button" class="chip ativo" data-freq="unica">Única</button>
+          <button type="button" class="chip" data-freq="quinzenal">Quinzenal (15 e 30)</button>
+          <button type="button" class="chip" data-freq="mensal">🔁 Mensal</button>
+        </div>
+        <div class="detalhe" id="detalhe-freq" hidden></div>
+      </div>
 
       <button class="botao" id="salvar">SALVAR</button>
     </section>`;
 
   const $valor = document.getElementById("valor");
+  const $data = document.getElementById("data");
   ligarCampoValor($valor);
+
+  function atualizarFreq() {
+    document.querySelectorAll("#freqs .chip").forEach((c) => c.classList.toggle("ativo", c.dataset.freq === freq));
+    const $d = document.getElementById("detalhe-freq");
+    $d.hidden = freq === "unica";
+    const dia = $data.value ? Number($data.value.slice(8)) : "?";
+    $d.textContent = freq === "quinzenal"
+      ? "Repete nos dias 15 e 30. Aparece prevista ⏳ e, no dia, o app pergunta se entrou."
+      : `🔁 Repete todo dia ${dia}. Aparece prevista ⏳ e, no dia, o app pergunta se entrou.`;
+  }
+  document.getElementById("freqs").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (b) { freq = b.dataset.freq; atualizarFreq(); }
+  });
+  $data.addEventListener("change", atualizarFreq);
 
   document.getElementById("tipos").addEventListener("click", (e) => {
     const b = e.target.closest(".chip");
@@ -194,11 +214,14 @@ function telaNovaEntrada() {
     if (!data) { avisoRapido("Escolha a data"); return; }
     if (!tipo) { avisoRapido("Escolha o tipo"); return; }
 
-    const fixa = document.getElementById("fixa").checked;
-    salvarEntrada({ valor, data, tipo, fixa, descricao: document.getElementById("descricao").value.trim() });
+    salvarEntrada({ valor, data, tipo, freq, descricao: document.getElementById("descricao").value.trim() });
     quinzenaVista = quinzenaDe(data);
     abrir("inicio");
-    avisoRapido(fixa ? "Entrada fixa salva: o app vai perguntar nos dias 15 e 30" : "Entrada salva");
+    avisoRapido({
+      unica: "Entrada salva",
+      quinzenal: "Entrada quinzenal salva: dias 15 e 30",
+      mensal: `Entrada mensal salva: todo dia ${Number(data.slice(8))}`,
+    }[freq]);
   };
 
   window.scrollTo(0, 0);
@@ -211,24 +234,36 @@ function nomeLancamento(l) {
   return l.descricao || l.categoria;
 }
 
+// Marca ao lado do nome: parcela, 🔁 recorrente ou ⏳ previsto (conta ou entrada fixa)
+function marcaLancamento(l) {
+  if (l.totalParcelas) return ` ${l.parcela}/${l.totalParcelas}`;
+  if (l.recorrente) return " 🔁";
+  if (l.contaPrevista || l.fixaPrevista) return " ⏳";
+  return "";
+}
+
 function itemLancamento(l) {
   const sinal = l.tipo === "entrada" ? "+" : "−";
   const classe = l.tipo === "entrada" ? "entrada" : "gasto";
-  const parc = l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}`
-    : l.recorrente ? " 🔁" : l.contaPrevista ? " ⏳" : "";
+  const parc = marcaLancamento(l);
   return `<li class="clicavel" data-id="${l.id}">
     <span>${nomeLancamento(l)}${parc}<span class="data">${diaMes(l.data)}</span></span>
     <span class="${classe}">${sinal} ${reais(l.valor)}</span>
   </li>`;
 }
 
-// ---------- Painel de um lançamento (excluir) ----------
-// aoTerminar: função que redesenha a tela depois de excluir
+// ---------- Painel de um lançamento (editar / excluir) ----------
+// aoTerminar: função que redesenha a tela depois de editar ou excluir
 function painelLancamento(l, aoTerminar) {
   // Conta prevista (⏳): abre as opções da conta (Paguei, Editar, Excluir)
   if (l.contaPrevista) {
     const item = contasDoMes(l.contaPrevista.am).find((i) => i.conta.id === l.contaPrevista.id);
     if (item) painelConta(item, aoTerminar);
+    return;
+  }
+  // Entrada fixa prevista (⏳): confirmar se entrou, alterar ou parar
+  if (l.fixaPrevista) {
+    painelEntradaPrevista(l, aoTerminar);
     return;
   }
 
@@ -244,45 +279,236 @@ function painelLancamento(l, aoTerminar) {
     <p class="${l.tipo === "entrada" ? "entrada" : "gasto"}"><strong>${reais(l.valor)}</strong></p>
     <p class="suave">${dataCompleta(l.data)} · ${categoria}</p>`;
 
-  // Cada opção: [texto do botão, pergunta de confirmação, ação]
-  let opcoes;
+  const editar = (modo) => () => { fechar(); telaEditarLancamento(l, modo, aoTerminar); };
+  const fixa = l.fixa && dados.entradasFixas.find((f) => f.id === l.fixa && f.ativo);
+
+  // Edições: [texto do botão, ação]
+  const edicoes = [];
   if (l.grupo) {
-    opcoes = [
-      ["Excluir só esta parcela", `Excluir a parcela ${l.parcela}/${l.totalParcelas}?`, () => excluirLancamento(l)],
-      [`Excluir todas as ${l.totalParcelas} parcelas`, `Excluir as ${l.totalParcelas} parcelas desta compra?`, () => excluirTodasParcelas(l.grupo)],
-    ];
+    edicoes.push(["✏️ Editar só esta parcela", editar("um")]);
+    edicoes.push([`✏️ Editar todas as ${l.totalParcelas} parcelas`, editar("parcelas")]);
   } else if (l.recorrente) {
-    opcoes = [
-      ["Excluir só este mês", `Excluir o lançamento de ${dataCompleta(l.data)}? Os outros meses continuam.`, () => excluirLancamento(l)],
-      ["Parar recorrência", `Parar a recorrência? Este mês e os próximos serão apagados. Os meses anteriores ficam.`, () => pararRecorrencia(l.recorrente, l.data)],
-    ];
+    edicoes.push(["✏️ Editar deste mês em diante", editar("recorrente")]);
   } else {
-    opcoes = [["🗑️ Excluir", "Excluir este lançamento?", () => excluirLancamento(l)]];
+    edicoes.push(["✏️ Editar", editar("um")]);
+  }
+  if (fixa) edicoes.push(["💰 Alterar valor da entrada fixa", () => alterarSalario(fixa)]);
+
+  // Exclusões: [texto do botão, pergunta de confirmação, ação, botão "sim", mensagem]
+  const exclusoes = [];
+  if (l.grupo) {
+    exclusoes.push(["Excluir só esta parcela", `Excluir a parcela ${l.parcela}/${l.totalParcelas}?`, () => excluirLancamento(l)]);
+    exclusoes.push([`Excluir todas as ${l.totalParcelas} parcelas`, `Excluir as ${l.totalParcelas} parcelas desta compra?`, () => excluirTodasParcelas(l.grupo)]);
+  } else if (l.recorrente) {
+    exclusoes.push(["Excluir só este mês", `Excluir o lançamento de ${dataCompleta(l.data)}? Os outros meses continuam.`, () => excluirLancamento(l)]);
+    exclusoes.push(["Parar recorrência", "Parar a recorrência? Este mês e os próximos serão apagados. Os meses anteriores ficam.", () => pararRecorrencia(l.recorrente, l.data)]);
+  } else {
+    exclusoes.push(["🗑️ Excluir", "Excluir este lançamento?", () => excluirLancamento(l)]);
+  }
+  if (fixa) {
+    exclusoes.push(["⏹️ Parar entrada fixa",
+      `Parar a entrada fixa "${fixa.descricao || fixa.tipo}"? Ela deixa de aparecer nos próximos meses. As entradas já lançadas continuam.`,
+      () => pararSalarioFixo(fixa.id), "Sim, parar", "Entrada fixa parada"]);
   }
 
   function mostrarOpcoes() {
     fundo.innerHTML = `<div class="painel">${cabecalho}
-      ${opcoes.map(([texto], i) => `<button class="botao perigo" data-i="${i}">${texto}</button>`).join("")}
+      ${edicoes.map(([texto], i) => `<button class="botao secundario" data-e="${i}">${texto}</button>`).join("")}
+      ${exclusoes.map(([texto], i) => `<button class="botao perigo" data-x="${i}">${texto}</button>`).join("")}
       <button class="botao secundario" data-cancelar>Cancelar</button></div>`;
-    fundo.querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => confirmar(opcoes[b.dataset.i])));
+    fundo.querySelectorAll("[data-e]").forEach((b) => (b.onclick = edicoes[b.dataset.e][1]));
+    fundo.querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => confirmar(exclusoes[b.dataset.x])));
     fundo.querySelector("[data-cancelar]").onclick = fechar;
   }
 
-  function confirmar([, pergunta, acao]) {
+  function confirmar([, pergunta, acao, sim = "Sim, excluir", mensagem = "Excluído"]) {
     fundo.innerHTML = `<div class="painel">${cabecalho}
       <p><strong>${pergunta}</strong></p>
-      <button class="botao perigo" data-sim>Sim, excluir</button>
+      <button class="botao perigo" data-sim>${sim}</button>
       <button class="botao secundario" data-voltar>Voltar</button></div>`;
     fundo.querySelector("[data-sim]").onclick = () => {
       acao();
       fechar();
       aoTerminar();
-      avisoRapido("Excluído");
+      avisoRapido(mensagem);
     };
     fundo.querySelector("[data-voltar]").onclick = mostrarOpcoes;
   }
 
+  function alterarSalario(f) {
+    fundo.innerHTML = `<div class="painel">
+      <h3>💰 ${f.descricao || f.tipo}</h3>
+      <p class="suave">Valor atual: ${reais(f.valor)}. O novo valor vale para os próximos cartões "entrou?".</p>
+      <label class="campo">Novo valor
+        <input id="novo-salario" inputmode="numeric" placeholder="R$ 0,00">
+      </label>
+      <button class="botao" data-salvar>Salvar</button>
+      <button class="botao secundario" data-voltar>Voltar</button></div>`;
+    const $v = fundo.querySelector("#novo-salario");
+    ligarCampoValor($v);
+    $v.focus();
+    fundo.querySelector("[data-voltar]").onclick = mostrarOpcoes;
+    fundo.querySelector("[data-salvar]").onclick = () => {
+      const valor = Number($v.dataset.centavos) || 0;
+      if (!valor) { avisoRapido("Digite o valor"); return; }
+      alterarSalarioFixo(f.id, valor);
+      fechar();
+      aoTerminar();
+      avisoRapido(`Entrada fixa agora é ${reais(valor)}`);
+    };
+  }
+
   mostrarOpcoes();
+}
+
+// ---------- Painel de uma entrada fixa prevista (⏳) ----------
+function painelEntradaPrevista(l, aoTerminar) {
+  const f = dados.entradasFixas.find((x) => x.id === l.fixaPrevista.id);
+  const data = l.fixaPrevista.data;
+  const fundo = document.createElement("div");
+  fundo.className = "painel-fundo";
+  document.body.appendChild(fundo);
+  const fechar = () => fundo.remove();
+  fundo.addEventListener("click", (e) => { if (e.target === fundo) fechar(); });
+  const terminar = (mensagem) => { fechar(); aoTerminar(); avisoRapido(mensagem); };
+
+  const cabecalho = `
+    <h3>${nomeLancamento(l)} ⏳</h3>
+    <p class="entrada"><strong>${reais(f.valor)}</strong></p>
+    <p class="suave">Prevista para ${dataCompleta(data)} · ${f.freq === "mensal" ? "mensal" : "quinzenal (15 e 30)"}</p>`;
+
+  // Valor: confirmar quanto entrou, ou alterar o valor da entrada fixa
+  function pedirValor(titulo, explicacao, aoSalvar) {
+    fundo.innerHTML = `<div class="painel">${cabecalho}
+      <p class="suave">${explicacao}</p>
+      <label class="campo">${titulo}
+        <input id="valor-fixa" inputmode="numeric">
+      </label>
+      <button class="botao" data-salvar>Salvar</button>
+      <button class="botao secundario" data-voltar>Voltar</button></div>`;
+    const $v = fundo.querySelector("#valor-fixa");
+    ligarCampoValor($v);
+    $v.value = reais(f.valor);
+    $v.dataset.centavos = f.valor;
+    fundo.querySelector("[data-voltar]").onclick = opcoes;
+    fundo.querySelector("[data-salvar]").onclick = () => {
+      const valor = Number($v.dataset.centavos) || 0;
+      if (!valor) { avisoRapido("Digite o valor"); return; }
+      aoSalvar(valor);
+    };
+  }
+
+  function opcoes() {
+    fundo.innerHTML = `<div class="painel">${cabecalho}
+      <button class="botao" data-entrou>✅ Entrou</button>
+      <button class="botao secundario" data-nao>Não entrou</button>
+      <button class="botao secundario" data-alterar>💰 Alterar valor da entrada fixa</button>
+      <button class="botao perigo" data-parar>⏹️ Parar entrada fixa</button>
+      <button class="botao secundario" data-cancelar>Cancelar</button></div>`;
+    fundo.querySelector("[data-entrou]").onclick = () =>
+      pedirValor("Valor que entrou", "Confirme ou ajuste o valor.", (valor) => {
+        responderEntrada(f, data, valor);
+        terminar(`Entrada de ${reais(valor)} lançada`);
+      });
+    fundo.querySelector("[data-nao]").onclick = () => {
+      responderEntrada(f, data, null);
+      terminar("Marcado como não entrou");
+    };
+    fundo.querySelector("[data-alterar]").onclick = () =>
+      pedirValor("Novo valor", "O novo valor vale para esta e as próximas.", (valor) => {
+        alterarSalarioFixo(f.id, valor);
+        terminar(`Entrada fixa agora é ${reais(valor)}`);
+      });
+    fundo.querySelector("[data-parar]").onclick = () => {
+      fundo.innerHTML = `<div class="painel">${cabecalho}
+        <p><strong>Parar a entrada fixa "${f.descricao || f.tipo}"? Ela deixa de aparecer nos próximos meses. As entradas já lançadas continuam.</strong></p>
+        <button class="botao perigo" data-sim>Sim, parar</button>
+        <button class="botao secundario" data-voltar>Voltar</button></div>`;
+      fundo.querySelector("[data-sim]").onclick = () => { pararSalarioFixo(f.id); terminar("Entrada fixa parada"); };
+      fundo.querySelector("[data-voltar]").onclick = opcoes;
+    };
+    fundo.querySelector("[data-cancelar]").onclick = fechar;
+  }
+
+  opcoes();
+}
+
+// ---------- Editar lançamento ----------
+// modo: "um" (só este) | "parcelas" (todas as parcelas) | "recorrente" (deste mês em diante)
+function telaEditarLancamento(l, modo, aoTerminar) {
+  const ehCaderneta = l.categoria === CADERNETA;
+  const ehEntrada = l.tipo === "entrada";
+  const opcoesCategoria = ehCaderneta ? [] : ehEntrada ? TIPOS_ENTRADA : CATEGORIAS;
+  const mostraData = modo === "um";
+  let categoria = l.categoria;
+
+  const titulo = { um: ehEntrada ? "Editar entrada" : "Editar gasto", parcelas: "Editar parcelas", recorrente: "Editar recorrente" }[modo];
+  const explicacao = {
+    parcelas: `A mudança vale para as ${l.totalParcelas} parcelas. Cada uma mantém sua data.`,
+    recorrente: `A mudança vale a partir de ${dataCompleta(l.data)}. Os meses anteriores ficam como estavam.`,
+  }[modo];
+
+  $tela.innerHTML = `
+    <div class="topo-form">
+      <button class="voltar" id="voltar" aria-label="Voltar">←</button>
+      <h1>${titulo}</h1>
+    </div>
+
+    <section class="cartao form">
+      ${explicacao ? `<p class="suave">${explicacao}</p>` : ""}
+      <label class="campo">${modo === "parcelas" ? "Valor de cada parcela" : "Valor"}
+        <input id="valor" inputmode="numeric" autocomplete="off">
+      </label>
+
+      <label class="campo" ${ehCaderneta ? "hidden" : ""}>Descrição
+        <input id="descricao" maxlength="60" autocomplete="off">
+      </label>
+
+      <label class="campo" ${mostraData ? "" : "hidden"}>Data
+        <input id="data" type="date">
+      </label>
+
+      <div class="campo" ${opcoesCategoria.length ? "" : "hidden"}>${ehEntrada ? "Tipo" : "Categoria"}
+        <div class="chips" id="categorias">
+          ${opcoesCategoria.map((c) => `<button type="button" class="chip ${c === categoria ? "ativo" : ""}" data-cat="${c}">${c}</button>`).join("")}
+        </div>
+      </div>
+
+      <button class="botao" id="salvar">SALVAR</button>
+    </section>`;
+
+  const $valor = document.getElementById("valor");
+  const $descricao = document.getElementById("descricao");
+  const $data = document.getElementById("data");
+  ligarCampoValor($valor);
+  $valor.value = reais(l.valor);
+  $valor.dataset.centavos = l.valor;
+  $descricao.value = l.descricao || "";
+  $data.value = l.data;
+
+  document.getElementById("categorias").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    categoria = b.dataset.cat;
+    document.querySelectorAll("#categorias .chip").forEach((c) => c.classList.toggle("ativo", c === b));
+  });
+  document.getElementById("voltar").onclick = aoTerminar;
+
+  document.getElementById("salvar").onclick = () => {
+    const valor = Number($valor.dataset.centavos) || 0;
+    if (!valor) { avisoRapido("Digite o valor"); $valor.focus(); return; }
+    if (mostraData && !$data.value) { avisoRapido("Escolha a data"); return; }
+    const campos = { valor, descricao: ehCaderneta ? "" : $descricao.value.trim(), categoria };
+
+    if (modo === "parcelas") editarTodasParcelas(l.grupo, campos);
+    else if (modo === "recorrente") editarRecorrenciaDesde(l.recorrente, l.data, campos);
+    else editarLancamento(l.id, { ...campos, data: $data.value });
+
+    aoTerminar();
+    avisoRapido("Alterado");
+  };
+
+  window.scrollTo(0, 0);
 }
 
 // ---------- Campo de valor: digita só números, preenche da direita (centavos) ----------
@@ -564,19 +790,12 @@ function telaCaderneta() {
   });
 }
 
-// ---------- Telas das próximas fases ----------
-function telaEmConstrucao(nome, fase) {
-  $tela.innerHTML = `
-    <h1>${nome}</h1>
-    <section class="cartao"><p class="vazio">🚧 Esta tela chega na fase ${fase}.</p></section>`;
-}
-
 // ---------- Menu inferior ----------
 const TELAS = {
   inicio: telaInicio,
   caderneta: telaCaderneta,
   contas: telaContas,
-  historico: () => telaEmConstrucao("📋 Histórico", 6),
+  historico: telaHistorico,
 };
 
 function abrir(nome) {

@@ -204,6 +204,14 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
 }
 .aviso-conta.vencida { border-color: var(--gasto); color: var(--gasto); }
 
+/* ===== Histórico ===== */
+.filtros { margin: 0 0 0.9rem; }
+.lista.compacta li { padding: 0.4rem 0; font-size: 0.95rem; }
+.lista.compacta li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lista.compacta li > span:last-child { white-space: nowrap; }
+.dia-curto { color: var(--texto-suave); font-size: 0.85rem; margin-right: 0.25rem; }
+.legenda { text-align: center; font-size: 0.8rem; }
+
 /* ===== Painel que sobe de baixo ===== */
 .clicavel { cursor: pointer; }
 .painel-fundo {

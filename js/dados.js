@@ -15,7 +15,7 @@ const CADERNETA = "Caderneta"; // nome interno; o nome exibido fica em dados.cad
 const DADOS_INICIAIS = {
   lancamentos: [],
   contas: [],
-  entradasFixas: [], // { id, valor, descricao, tipo, inicio, ativo, respondidos: [datas] }
+  entradasFixas: [], // { id, valor, descricao, tipo, inicio, freq: "quinzenal"|"mensal", ativo, respondidos: [datas] }
   recorrentes: [], // { id, valor, descricao, categoria, inicio, ativo, pulados: [datas] }
   caderneta: { nome: "Caderneta", pagamentos: [] },
 };
@@ -38,7 +38,7 @@ function salvar() {
 
 // Lançamentos salvos + previstos (recorrentes futuros e contas não pagas) até a data "ate"
 function todosAte(ate) {
-  return [...dados.lancamentos, ...recorrentesFuturos(ate), ...contasPrevistas(ate)];
+  return [...dados.lancamentos, ...recorrentesFuturos(ate), ...contasPrevistas(ate), ...entradasPrevistas(ate)];
 }
 
 function lancamentosEntre(inicio, fim) {
@@ -146,9 +146,10 @@ function lancarEntrada({ valor, descricao, data, tipo, fixa }) {
   });
 }
 
-function salvarEntrada({ valor, descricao, data, tipo, fixa }) {
-  if (fixa) {
-    const f = { id: novoId(), valor, descricao, tipo, inicio: data, ativo: true, respondidos: [] };
+// freq: "unica" | "quinzenal" (dias 15 e 30) | "mensal" (mesmo dia todo mês)
+function salvarEntrada({ valor, descricao, data, tipo, freq }) {
+  if (freq !== "unica") {
+    const f = { id: novoId(), valor, descricao, tipo, inicio: data, freq, ativo: true, respondidos: [] };
     dados.entradasFixas.push(f);
     lancarEntrada({ valor, descricao, data, tipo, fixa: f.id });
   } else {
@@ -172,23 +173,81 @@ function diasDePagamento(inicio, fim) {
   }
 }
 
-// Salários fixos aguardando confirmação: [{ fixa, data }]
+// Datas em que a entrada fixa se repete, depois do início até "fim"
+function diasDaEntradaFixa(f, fim) {
+  if (f.freq !== "mensal") return diasDePagamento(f.inicio, fim); // quinzenal (padrão)
+  const dias = [];
+  for (let i = 1, d = somarMeses(f.inicio, 1); d <= fim; d = somarMeses(f.inicio, ++i)) dias.push(d);
+  return dias;
+}
+
+// Entradas fixas aguardando confirmação ("entrou?"): [{ fixa, data }]
 function entradasPendentes() {
   const hoje = hojeTexto();
   const lista = [];
   for (const f of dados.entradasFixas) {
     if (!f.ativo) continue;
-    for (const data of diasDePagamento(f.inicio, hoje)) {
+    for (const data of diasDaEntradaFixa(f, hoje)) {
       if (!f.respondidos.includes(data)) lista.push({ fixa: f, data });
     }
   }
   return lista.sort((x, y) => x.data.localeCompare(y.data));
 }
 
+// Entradas fixas ainda não confirmadas viram entradas previstas (⏳) até "ate".
+// Não são salvas: ao confirmar o "entrou?", a entrada de verdade toma o lugar.
+function entradasPrevistas(ate) {
+  const lista = [];
+  for (const f of dados.entradasFixas) {
+    if (!f.ativo) continue;
+    for (const data of diasDaEntradaFixa(f, ate)) {
+      if (f.respondidos.includes(data)) continue;
+      lista.push({
+        id: `fixa-${f.id}-${data}`, tipo: "entrada", valor: f.valor, descricao: f.descricao,
+        data, categoria: f.tipo, previsto: true, fixaPrevista: { id: f.id, data },
+      });
+    }
+  }
+  return lista;
+}
+
 // Responde o cartão "entrou?": valor = centavos recebidos, ou null se não entrou
 function responderEntrada(fixa, data, valor) {
   if (valor) lancarEntrada({ valor, descricao: fixa.descricao, data, tipo: fixa.tipo, fixa: fixa.id });
   fixa.respondidos.push(data);
+  salvar();
+}
+
+// ---------- Edição ----------
+// campos: { valor, descricao, data, categoria } (só os que mudam)
+function editarLancamento(id, campos) {
+  Object.assign(dados.lancamentos.find((l) => l.id === id), campos);
+  salvar();
+}
+
+// Todas as parcelas: valor, descrição e categoria iguais; cada uma mantém sua data
+function editarTodasParcelas(grupo, { valor, descricao, categoria }) {
+  dados.lancamentos.filter((l) => l.grupo === grupo)
+    .forEach((l) => Object.assign(l, { valor, descricao, categoria }));
+  salvar();
+}
+
+// Recorrente: muda deste mês em diante (os lançamentos anteriores ficam como estavam)
+function editarRecorrenciaDesde(id, data, { valor, descricao, categoria }) {
+  const r = dados.recorrentes.find((x) => x.id === id);
+  Object.assign(r, { valor, descricao, categoria });
+  dados.lancamentos.filter((l) => l.recorrente === id && l.data >= data)
+    .forEach((l) => Object.assign(l, { valor, descricao, categoria }));
+  salvar();
+}
+
+function alterarSalarioFixo(id, valor) {
+  dados.entradasFixas.find((f) => f.id === id).valor = valor;
+  salvar();
+}
+
+function pararSalarioFixo(id) {
+  dados.entradasFixas.find((f) => f.id === id).ativo = false;
   salvar();
 }
 
