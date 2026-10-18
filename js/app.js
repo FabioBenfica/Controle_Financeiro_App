@@ -34,6 +34,7 @@ function telaInicio() {
 
   $tela.innerHTML = `
     <h1>Controle Financeiro</h1>
+    <div id="avisos-contas"></div>
     <div id="avisos"></div>
 
     <section class="cartao">
@@ -87,6 +88,7 @@ function telaInicio() {
   document.getElementById("novo-gasto").onclick = () => telaNovoGasto();
   document.getElementById("nova-entrada").onclick = telaNovaEntrada;
 
+  mostrarAvisosContas();
   mostrarSalariosPendentes();
 }
 
@@ -212,7 +214,8 @@ function nomeLancamento(l) {
 function itemLancamento(l) {
   const sinal = l.tipo === "entrada" ? "+" : "−";
   const classe = l.tipo === "entrada" ? "entrada" : "gasto";
-  const parc = l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : l.recorrente ? " 🔁" : "";
+  const parc = l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}`
+    : l.recorrente ? " 🔁" : l.contaPrevista ? " ⏳" : "";
   return `<li class="clicavel" data-id="${l.id}">
     <span>${nomeLancamento(l)}${parc}<span class="data">${diaMes(l.data)}</span></span>
     <span class="${classe}">${sinal} ${reais(l.valor)}</span>
@@ -222,6 +225,13 @@ function itemLancamento(l) {
 // ---------- Painel de um lançamento (excluir) ----------
 // aoTerminar: função que redesenha a tela depois de excluir
 function painelLancamento(l, aoTerminar) {
+  // Conta prevista (⏳): abre as opções da conta (Paguei, Editar, Excluir)
+  if (l.contaPrevista) {
+    const item = contasDoMes(l.contaPrevista.am).find((i) => i.conta.id === l.contaPrevista.id);
+    if (item) painelConta(item, aoTerminar);
+    return;
+  }
+
   const fundo = document.createElement("div");
   fundo.className = "painel-fundo";
   document.body.appendChild(fundo);
@@ -565,7 +575,7 @@ function telaEmConstrucao(nome, fase) {
 const TELAS = {
   inicio: telaInicio,
   caderneta: telaCaderneta,
-  contas: () => telaEmConstrucao("📄 Contas", 5),
+  contas: telaContas,
   historico: () => telaEmConstrucao("📋 Histórico", 6),
 };
 

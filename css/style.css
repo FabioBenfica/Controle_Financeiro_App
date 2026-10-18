@@ -192,6 +192,18 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
 .detalhes-pagamento div { display: flex; justify-content: space-between; padding: 0.2rem 0; color: var(--texto-suave); }
 .menu .rotulo { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.2rem; }
 
+/* ===== Contas ===== */
+.lista li.conta { align-items: center; }
+.lista li.conta > span:last-child { display: flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+.botao.mini { flex: none; padding: 0.4rem 0.7rem; font-size: 0.8rem; border-radius: 8px; }
+.aviso-conta {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  margin-bottom: 0.6rem; padding: 0.75rem 1rem; border-radius: 12px;
+  font: inherit; font-size: 0.95rem; color: var(--texto);
+  background: var(--cartao); border: 2px solid var(--caderneta);
+}
+.aviso-conta.vencida { border-color: var(--gasto); color: var(--gasto); }
+
 /* ===== Painel que sobe de baixo ===== */
 .clicavel { cursor: pointer; }
 .painel-fundo {
