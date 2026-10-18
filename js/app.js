@@ -84,7 +84,7 @@ function telaInicio() {
     if (l) painelLancamento(l, telaInicio);
   });
 
-  document.getElementById("novo-gasto").onclick = telaNovoGasto;
+  document.getElementById("novo-gasto").onclick = () => telaNovoGasto();
   document.getElementById("nova-entrada").onclick = telaNovaEntrada;
 
   mostrarSalariosPendentes();
@@ -203,13 +203,18 @@ function telaNovaEntrada() {
   $valor.focus();
 }
 
+// Nome exibido: descrição, ou "📒 <nome da Caderneta>", ou a categoria
+function nomeLancamento(l) {
+  if (l.categoria === CADERNETA) return `📒 ${l.descricao || dados.caderneta.nome}`;
+  return l.descricao || l.categoria;
+}
+
 function itemLancamento(l) {
   const sinal = l.tipo === "entrada" ? "+" : "−";
   const classe = l.tipo === "entrada" ? "entrada" : "gasto";
-  const cad = l.categoria === CADERNETA ? " 📒" : "";
   const parc = l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : l.recorrente ? " 🔁" : "";
   return `<li class="clicavel" data-id="${l.id}">
-    <span>${l.descricao || l.categoria}${parc}${cad}<span class="data">${diaMes(l.data)}</span></span>
+    <span>${nomeLancamento(l)}${parc}<span class="data">${diaMes(l.data)}</span></span>
     <span class="${classe}">${sinal} ${reais(l.valor)}</span>
   </li>`;
 }
@@ -225,7 +230,7 @@ function painelLancamento(l, aoTerminar) {
 
   const categoria = l.categoria === CADERNETA ? `📒 ${dados.caderneta.nome}` : l.categoria;
   const cabecalho = `
-    <h3>${l.descricao || l.categoria}${l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : ""}${l.recorrente ? " 🔁" : ""}</h3>
+    <h3>${nomeLancamento(l)}${l.totalParcelas ? ` ${l.parcela}/${l.totalParcelas}` : ""}${l.recorrente ? " 🔁" : ""}</h3>
     <p class="${l.tipo === "entrada" ? "entrada" : "gasto"}"><strong>${reais(l.valor)}</strong></p>
     <p class="suave">${dataCompleta(l.data)} · ${categoria}</p>`;
 
@@ -328,7 +333,6 @@ function telaNovoGasto() {
       <div class="campo">Categoria
         <div class="chips" id="categorias">
           ${CATEGORIAS.map((c) => `<button type="button" class="chip" data-cat="${c}">${c}</button>`).join("")}
-          <button type="button" class="chip chip-cad" data-cat="${CADERNETA}">📒 ${dados.caderneta.nome}</button>
         </div>
       </div>
 
@@ -340,9 +344,6 @@ function telaNovoGasto() {
   const $detalhe = document.getElementById("detalhe-parcelas");
 
   function atualizarParcelas() {
-    // Caderneta é sempre paga de uma vez: sem opções de repetição
-    if (categoria === CADERNETA) repeticao = "unica";
-    document.getElementById("bloco-repeticao").hidden = categoria === CADERNETA;
     document.querySelectorAll("#repeticoes .chip").forEach((c) =>
       c.classList.toggle("ativo", c.dataset.rep === repeticao));
     document.getElementById("bloco-parcelas").hidden = repeticao !== "parcelada";
@@ -385,7 +386,6 @@ function telaNovoGasto() {
     if (!b) return;
     categoria = b.dataset.cat;
     document.querySelectorAll("#categorias .chip").forEach((c) => c.classList.toggle("ativo", c === b));
-    atualizarParcelas();
   });
 
   document.getElementById("voltar").onclick = () => abrir("inicio");
@@ -417,6 +417,143 @@ function telaNovoGasto() {
   $valor.focus();
 }
 
+// ---------- Lançar na Caderneta: só valor e data ----------
+function telaLancarCaderneta() {
+  $tela.innerHTML = `
+    <div class="topo-form">
+      <button class="voltar" id="voltar" aria-label="Voltar">←</button>
+      <h1>Lançar na ${dados.caderneta.nome}</h1>
+    </div>
+
+    <section class="cartao form">
+      <label class="campo">Valor
+        <input id="valor" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
+      </label>
+
+      <label class="campo">Data
+        <input id="data" type="date" value="${hojeTexto()}">
+      </label>
+
+      <button class="botao" id="salvar">SALVAR</button>
+    </section>`;
+
+  const $valor = document.getElementById("valor");
+  ligarCampoValor($valor);
+  document.getElementById("voltar").onclick = telaCaderneta;
+
+  document.getElementById("salvar").onclick = () => {
+    const valor = Number($valor.dataset.centavos) || 0;
+    const data = document.getElementById("data").value;
+    if (!valor) { avisoRapido("Digite o valor"); $valor.focus(); return; }
+    if (!data) { avisoRapido("Escolha a data"); return; }
+    salvarGasto({ valor, data, categoria: CADERNETA, descricao: "", parcelas: 1 });
+    telaCaderneta();
+    avisoRapido(`${reais(valor)} lançado na ${dados.caderneta.nome}`);
+  };
+
+  window.scrollTo(0, 0);
+  $valor.focus();
+}
+
+// ---------- Caderneta ----------
+function telaCaderneta() {
+  const abertos = cadernetaEmAberto();
+  const total = totalCaderneta();
+  const pagamentos = [...dados.caderneta.pagamentos].reverse();
+
+  $tela.innerHTML = `
+    <div class="topo-form" id="titulo-cad">
+      <h1>📒 ${dados.caderneta.nome}</h1>
+      <button class="voltar" id="renomear" aria-label="Renomear">✏️</button>
+    </div>
+
+    <section class="cartao">
+      <div class="saldo">
+        <small>Total pendurado</small>
+        <strong class="cad">${reais(total)}</strong>
+      </div>
+      <div id="area-pagar">
+        <button class="botao" id="paguei" ${total ? "" : "disabled"}>✅ PAGUEI</button>
+      </div>
+    </section>
+
+    <button class="botao secundario largo" id="lancar-cad">+ Lançar na ${dados.caderneta.nome}</button>
+
+    <section class="cartao">
+      <h2>Lançamentos em aberto</h2>
+      ${abertos.length ? `<ul class="lista" id="abertos">${abertos.map(itemLancamento).join("")}</ul>`
+        : `<p class="vazio">Nada pendurado. 🎉</p>`}
+    </section>
+
+    <section class="cartao">
+      <h2>Pagamentos anteriores</h2>
+      ${pagamentos.length ? `<ul class="lista" id="pagamentos">${pagamentos.map((p) => `
+        <li class="clicavel pagamento" data-id="${p.id}">
+          <span>${dataCompleta(p.data)} · Pago</span>
+          <span>${reais(p.valor)} <span class="seta">▸</span></span>
+        </li>
+        <li class="detalhes-pagamento" data-de="${p.id}" hidden>
+          ${dados.lancamentos.filter((l) => l.pagamento === p.id)
+            .sort((a, b) => a.data.localeCompare(b.data))
+            .map((l) => `<div><span>${diaMes(l.data)} ${l.descricao || ""}</span><span>${reais(l.valor)}</span></div>`).join("")
+            || `<div><span class="suave">Lançamentos excluídos</span></div>`}
+        </li>`).join("")}</ul>`
+        : `<p class="vazio">Nenhum pagamento ainda.</p>`}
+    </section>`;
+
+  // Renomear
+  document.getElementById("renomear").onclick = () => {
+    const $t = document.getElementById("titulo-cad");
+    $t.innerHTML = `
+      <input id="novo-nome" class="valor-aviso" maxlength="25" value="${dados.caderneta.nome.replaceAll('"', "&quot;")}">
+      <button class="botao" id="salvar-nome">Salvar</button>`;
+    const $n = document.getElementById("novo-nome");
+    $n.focus(); $n.select();
+    document.getElementById("salvar-nome").onclick = () => {
+      const nome = $n.value.trim();
+      if (!nome) { avisoRapido("Digite um nome"); return; }
+      renomearCaderneta(nome);
+      atualizarMenu();
+      telaCaderneta();
+      avisoRapido("Nome alterado");
+    };
+  };
+
+  // Paguei → confirmação
+  document.getElementById("paguei").onclick = () => {
+    document.getElementById("area-pagar").innerHTML = `
+      <p style="text-align:center"><strong>Confirmar pagamento de ${reais(total)}?</strong></p>
+      <div class="acoes">
+        <button class="botao" id="sim-paguei">Sim, paguei</button>
+        <button class="botao secundario" id="nao-paguei">Voltar</button>
+      </div>`;
+    document.getElementById("sim-paguei").onclick = () => {
+      const p = pagarCaderneta();
+      telaCaderneta();
+      if (p) avisoRapido(`Pagamento de ${reais(p.valor)} registrado`);
+    };
+    document.getElementById("nao-paguei").onclick = telaCaderneta;
+  };
+
+  document.getElementById("lancar-cad").onclick = telaLancarCaderneta;
+
+  const $abertos = document.getElementById("abertos");
+  if ($abertos) $abertos.addEventListener("click", (e) => {
+    const li = e.target.closest("li[data-id]");
+    const l = li && abertos.find((x) => x.id === li.dataset.id);
+    if (l) painelLancamento(l, telaCaderneta);
+  });
+
+  const $pags = document.getElementById("pagamentos");
+  if ($pags) $pags.addEventListener("click", (e) => {
+    const li = e.target.closest("li.pagamento");
+    if (!li) return;
+    const det = $pags.querySelector(`[data-de="${li.dataset.id}"]`);
+    det.hidden = !det.hidden;
+    li.querySelector(".seta").textContent = det.hidden ? "▸" : "▾";
+  });
+}
+
 // ---------- Telas das próximas fases ----------
 function telaEmConstrucao(nome, fase) {
   $tela.innerHTML = `
@@ -427,7 +564,7 @@ function telaEmConstrucao(nome, fase) {
 // ---------- Menu inferior ----------
 const TELAS = {
   inicio: telaInicio,
-  caderneta: () => telaEmConstrucao(`📒 ${dados.caderneta.nome}`, 4),
+  caderneta: telaCaderneta,
   contas: () => telaEmConstrucao("📄 Contas", 5),
   historico: () => telaEmConstrucao("📋 Histórico", 6),
 };
@@ -444,5 +581,12 @@ document.querySelector(".menu").addEventListener("click", (e) => {
   if (b) abrir(b.dataset.tela);
 });
 
+// O botão da Caderneta no menu mostra o nome escolhido
+function atualizarMenu() {
+  document.querySelector('.menu [data-tela="caderneta"]').innerHTML =
+    `<span class="icone">📒</span><span class="rotulo">${dados.caderneta.nome}</span>`;
+}
+
+atualizarMenu();
 gerarRecorrentes();
 abrir("inicio");

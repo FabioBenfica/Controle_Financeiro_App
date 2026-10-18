@@ -216,6 +216,36 @@ function pararRecorrencia(id, aPartirDe) {
   salvar();
 }
 
+// ---------- Caderneta ----------
+// pagamentos: { id, data, valor, itens: [ids dos lançamentos pagos] }
+
+function renomearCaderneta(nome) {
+  dados.caderneta.nome = nome;
+  salvar();
+}
+
+function cadernetaEmAberto() {
+  return dados.lancamentos
+    .filter((l) => l.categoria === CADERNETA && !l.cadernetaPaga)
+    .sort((a, b) => a.data.localeCompare(b.data));
+}
+
+// Fecha a Caderneta: marca os lançamentos como pagos e guarda o pagamento.
+// Não lança gasto novo: cada lançamento já descontou do saldo quando foi feito.
+function pagarCaderneta() {
+  const abertos = cadernetaEmAberto();
+  if (!abertos.length) return null;
+  const pagamento = {
+    id: novoId(), data: hojeTexto(),
+    valor: abertos.reduce((s, l) => s + l.valor, 0),
+    itens: abertos.map((l) => l.id),
+  };
+  abertos.forEach((l) => { l.cadernetaPaga = true; l.pagamento = pagamento.id; });
+  dados.caderneta.pagamentos.push(pagamento);
+  salvar();
+  return pagamento;
+}
+
 // Total "pendurado" na Caderneta (gastos ainda não pagos)
 function totalCaderneta() {
   return dados.lancamentos

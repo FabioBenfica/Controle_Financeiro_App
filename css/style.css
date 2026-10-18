@@ -165,8 +165,6 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
   background: var(--fundo); color: var(--texto); border: 1px solid var(--borda);
 }
 .chip.ativo { background: var(--principal); color: var(--principal-texto); border-color: var(--principal); }
-.chip-cad { border: 2px solid var(--caderneta); color: var(--caderneta); font-weight: 600; }
-.chip-cad.ativo { background: var(--caderneta); color: var(--cartao); border-color: var(--caderneta); }
 
 .campo.marcar { display: flex; gap: 0.75rem; align-items: flex-start; color: var(--texto); font-weight: 400; cursor: pointer; }
 .campo.marcar input { width: 22px; height: 22px; margin: 0.1rem 0 0; flex: none; accent-color: var(--principal); }
@@ -182,6 +180,17 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
   color: var(--texto); background: var(--fundo);
   border: 1px solid var(--borda); border-radius: 10px;
 }
+
+/* ===== Caderneta ===== */
+#titulo-cad { justify-content: space-between; gap: 0.5rem; }
+#titulo-cad .valor-aviso { flex: 1; min-width: 0; }
+#titulo-cad .botao { flex: none; }
+.botao:disabled { opacity: 0.4; cursor: default; }
+.botao.largo { display: block; width: 100%; margin-bottom: 0.9rem; }
+.detalhes-pagamento { display: block !important; padding: 0 0 0.5rem 0.75rem; font-size: 0.9rem; }
+.detalhes-pagamento[hidden] { display: none !important; }
+.detalhes-pagamento div { display: flex; justify-content: space-between; padding: 0.2rem 0; color: var(--texto-suave); }
+.menu .rotulo { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 0.2rem; }
 
 /* ===== Painel que sobe de baixo ===== */
 .clicavel { cursor: pointer; }
