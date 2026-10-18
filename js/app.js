@@ -33,7 +33,7 @@ function telaInicio() {
     .slice(0, 5);
 
   $tela.innerHTML = `
-    <h1>Controle Financeiro</h1>
+    <h1 class="marca"><img src="icones/icone-192.png" alt=""><span>FAROL</span></h1>
     <div id="avisos-contas"></div>
     <div id="avisos"></div>
 
@@ -814,6 +814,11 @@ document.querySelector(".menu").addEventListener("click", (e) => {
 function atualizarMenu() {
   document.querySelector('.menu [data-tela="caderneta"]').innerHTML =
     `<span class="icone">📒</span><span class="rotulo">${dados.caderneta.nome}</span>`;
+}
+
+// Funcionamento sem internet (só no site publicado; no computador atrapalharia ver as mudanças)
+if ("serviceWorker" in navigator && location.hostname !== "localhost") {
+  navigator.serviceWorker.register("sw.js");
 }
 
 atualizarMenu();

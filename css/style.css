@@ -1,34 +1,42 @@
-/* ===== Cores: tema claro (padrão) ===== */
+/* ===== Cores do Farol: azul petróleo + laranja do feixe de luz ===== */
 :root {
-  --fundo: #f3f5f4;
+  --fundo: #f2f5f6;
   --cartao: #ffffff;
-  --texto: #1c2421;
-  --texto-suave: #66726d;
-  --borda: #dfe5e2;
-  --principal: #1f7a5a;
+  --texto: #14262c;
+  --texto-suave: #5f7378;
+  --borda: #dbe3e5;
+  --principal: #033c4b;       /* azul petróleo do logo */
   --principal-texto: #ffffff;
+  --destaque: #f39c12;        /* laranja do feixe */
   --entrada: #1f8a4c;
   --gasto: #c0392b;
-  --caderneta: #b7791f;
+  --caderneta: #d68910;
   color-scheme: light;
 }
 
 /* ===== Tema escuro: automático, segue o celular ===== */
 @media (prefers-color-scheme: dark) {
   :root {
-    --fundo: #121614;
-    --cartao: #1d2321;
-    --texto: #e8eeeb;
-    --texto-suave: #98a5a0;
-    --borda: #2e3633;
-    --principal: #3fae84;
-    --principal-texto: #0d1411;
+    --fundo: #071d24;
+    --cartao: #0d2a33;
+    --texto: #e6eff1;
+    --texto-suave: #93a9ae;
+    --borda: #1d3f49;
+    --principal: #5fb3c6;     /* petróleo clareado para ler no escuro */
+    --principal-texto: #04222b;
+    --destaque: #f5b041;
     --entrada: #4cc27f;
     --gasto: #ef6b5b;
-    --caderneta: #e0a645;
+    --caderneta: #f5b041;
     color-scheme: dark;
   }
 }
+
+/* ===== Topo com a marca ===== */
+.marca { display: flex; align-items: center; gap: 0.6rem; }
+.marca img { width: 36px; height: 36px; border-radius: 10px; }
+.marca span { color: var(--principal); letter-spacing: 0.04em; }
+.menu button.ativo { box-shadow: inset 0 3px 0 var(--destaque); }
 
 * { box-sizing: border-box; }
 
