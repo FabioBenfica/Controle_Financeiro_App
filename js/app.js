@@ -534,6 +534,11 @@ function telaNovoGasto() {
       <h1>Novo gasto</h1>
     </div>
 
+    <label class="botao secundario largo ler-cupom" id="ler-cupom">📷 Ler cupom
+      <input type="file" id="foto-cupom" accept="image/*" capture="environment" hidden>
+    </label>
+    <div class="cartao leitura" id="leitura" hidden></div>
+
     <section class="cartao form">
       <label class="campo">Valor total
         <input id="valor" inputmode="numeric" placeholder="R$ 0,00" autocomplete="off">
@@ -606,6 +611,39 @@ function telaNovoGasto() {
   }
 
   ligarCampoValor($valor, atualizarParcelas);
+
+  // 📷 Ler cupom: preenche valor, descrição (loja) e data com o que o OCR encontrar
+  document.getElementById("foto-cupom").addEventListener("change", async (e) => {
+    const arquivo = e.target.files[0];
+    e.target.value = "";
+    if (!arquivo) return;
+    const $leitura = document.getElementById("leitura");
+    const $botao = document.getElementById("ler-cupom");
+    $botao.classList.add("ocupado");
+    $leitura.hidden = false;
+    $leitura.innerHTML = `<p>🔎 Lendo cupom... <span id="pct">0%</span></p><div class="barra"><div id="barra"></div></div>`;
+    try {
+      const r = await lerCupom(arquivo, (p) => {
+        document.getElementById("pct").textContent = `${Math.round(p * 100)}%`;
+        document.getElementById("barra").style.width = `${p * 100}%`;
+      });
+      if (r.valor) { $valor.value = reais(r.valor); $valor.dataset.centavos = r.valor; }
+      if (r.loja) document.getElementById("descricao").value = r.loja;
+      if (r.data) $data.value = r.data;
+      atualizarParcelas();
+      const achou = [r.valor && "valor", r.loja && "loja", r.data && "data"].filter(Boolean);
+      $leitura.innerHTML = achou.length === 3
+        ? `<p>✅ Cupom lido. <strong>Confira os campos</strong> antes de salvar.</p>`
+        : `<p>⚠️ Encontrei: ${achou.join(", ") || "nada"}. Complete o que faltar.</p>
+           <p class="suave">Dica: cupom esticado, boa luz e foto reta e de perto.</p>`;
+    } catch (erro) {
+      $leitura.innerHTML = erro.message === "sem-internet"
+        ? `<p>📶 Na primeira vez, o leitor precisa de internet para ser baixado. Conecte e tente de novo.</p>`
+        : `<p>❌ Não consegui ler a foto. Tente outra, com mais luz.</p>`;
+    } finally {
+      $botao.classList.remove("ocupado");
+    }
+  });
   $data.addEventListener("change", atualizarParcelas);
   document.getElementById("menos").onclick = () => { parcelas--; atualizarParcelas(); };
   document.getElementById("mais").onclick = () => { parcelas++; atualizarParcelas(); };

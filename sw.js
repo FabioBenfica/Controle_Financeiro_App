@@ -4,7 +4,7 @@
 //  busca a versão nova no GitHub para a próxima abertura.
 // ============================================================
 
-const CACHE = "farol-v1";
+const CACHE = "farol-v2";
 
 const ARQUIVOS = [
   "./",
@@ -15,6 +15,7 @@ const ARQUIVOS = [
   "js/dados.js",
   "js/contas.js",
   "js/historico.js",
+  "js/cupom.js",
   "js/app.js",
   "icones/icone-192.png",
   "icones/icone-512.png",

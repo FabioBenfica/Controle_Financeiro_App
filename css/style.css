@@ -249,3 +249,10 @@ h2 { font-size: 1rem; margin: 0 0 0.75rem; color: var(--texto-suave); font-weigh
   padding: 0.6rem 1rem; border-radius: 10px; font-size: 0.9rem;
   max-width: 90%; text-align: center;
 }
+
+/* ===== Ler cupom (OCR) ===== */
+.ler-cupom { text-align: center; cursor: pointer; }
+.ler-cupom.ocupado { opacity: 0.5; pointer-events: none; }
+.leitura p { margin: 0 0 0.4rem; }
+.barra { height: 8px; background: var(--borda); border-radius: 4px; overflow: hidden; }
+.barra div { height: 100%; width: 0; background: var(--destaque); transition: width 0.2s; }
