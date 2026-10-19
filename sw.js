@@ -4,7 +4,7 @@
 //  busca a versão nova no GitHub para a próxima abertura.
 // ============================================================
 
-const CACHE = "farol-v3";
+const CACHE = "farol-v4";
 
 const ARQUIVOS = [
   "./",
@@ -24,7 +24,7 @@ const ARQUIVOS = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS)));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARQUIVOS.map((u) => new Request(u, { cache: "reload" })))));
   self.skipWaiting();
 });
 
@@ -40,7 +40,7 @@ self.addEventListener("fetch", (e) => {
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const guardado = await cache.match(e.request, { ignoreSearch: true });
-      const daRede = fetch(e.request)
+      const daRede = fetch(e.request, { cache: "no-cache" })
         .then((resp) => { if (resp.ok) cache.put(e.request, resp.clone()); return resp; })
         .catch(() => guardado);
       return guardado || daRede;
