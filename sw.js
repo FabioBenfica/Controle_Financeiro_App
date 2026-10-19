@@ -4,7 +4,7 @@
 //  busca a versão nova no GitHub para a próxima abertura.
 // ============================================================
 
-const CACHE = "farol-v2";
+const CACHE = "farol-v3";
 
 const ARQUIVOS = [
   "./",

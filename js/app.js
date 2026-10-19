@@ -50,7 +50,7 @@ function telaInicio() {
       </div>
       <div class="linha"><span>Sobra anterior</span><span class="${sobra < 0 ? "gasto" : ""}">${reais(sobra)}</span></div>
       <div class="linha"><span>Entrou</span><span class="entrada">${reais(tq.entrou)}</span></div>
-      <div class="linha"><span>Saiu</span><span class="gasto">${reais(tq.saiu)}</span></div>
+      <div class="linha clicavel" data-ver-gastos><span>Saiu ›</span><span class="gasto">${reais(tq.saiu)}</span></div>
       <div class="linha"><span>Na ${dados.caderneta.nome}</span><span class="cad">${reais(totalCaderneta())}</span></div>
     </section>
 
@@ -58,7 +58,7 @@ function telaInicio() {
       <h2>Mês: ${MESES[mes - 1]}</h2>
       <div class="mes">
         <div><small>Entrou</small><strong class="entrada">${reais(tm.entrou)}</strong></div>
-        <div><small>Saiu</small><strong class="gasto">${reais(tm.saiu)}</strong></div>
+        <div class="clicavel" data-ver-gastos><small>Saiu ›</small><strong class="gasto">${reais(tm.saiu)}</strong></div>
       </div>
     </section>
 
@@ -83,6 +83,13 @@ function telaInicio() {
     const li = e.target.closest("li[data-id]");
     const l = li && ultimos.find((x) => x.id === li.dataset.id);
     if (l) painelLancamento(l, telaInicio);
+  });
+
+  // "Saiu" abre o Histórico do mês, já filtrado em Gastos
+  $tela.querySelectorAll("[data-ver-gastos]").forEach((el) => el.onclick = () => {
+    mesHistorico = mesDe(q.inicio);
+    filtroHistorico = "gasto";
+    abrir("historico");
   });
 
   document.getElementById("novo-gasto").onclick = () => telaNovoGasto();
